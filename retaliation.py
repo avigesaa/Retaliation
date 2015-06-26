@@ -80,8 +80,7 @@ import json
 import urllib2
 import base64
 
-import usb.core
-import usb.util
+import hid
 
 ##########################  CONFIG   #########################
 
@@ -177,45 +176,34 @@ def usage():
     print "             to test targeting of chris as defined in your command set."
     print ""
 
+def open_usb_device(device_type, vendor_id, product_id):
+    try:
+        device = hid.device()
+        device.open(vendor_id, product_id)
+        return device, device_type
+    except IOError:
+        return None, None
 
 def setup_usb():
     # Tested only with the Cheeky Dream Thunder
     # and original USB Launcher
     global DEVICE 
     global DEVICE_TYPE
-
-    DEVICE = usb.core.find(idVendor=0x2123, idProduct=0x1010)
-
+    DEVICE, DEVICE_TYPE = open_usb_device("Thunder",  vendor_id=0x2123, product_id=0x1010)
     if DEVICE is None:
-        DEVICE = usb.core.find(idVendor=0x0a81, idProduct=0x0701)
-        if DEVICE is None:
-            raise ValueError('Missile device not found')
-        else:
-            DEVICE_TYPE = "Original"
-    else:
-        DEVICE_TYPE = "Thunder"
-
-    
-
-    # On Linux we need to detach usb HID first
-    if "Linux" == platform.system():
-        try:
-            DEVICE.detach_kernel_driver(0)
-        except Exception, e:
-            pass # already unregistered    
-
-    DEVICE.set_configuration()
-
+        DEVICE, DEVICE_TYPE = open_usb_device("Original", vendor_id=0x0a81, product_id=0x0701)
+    if DEVICE is None:
+        raise ValueError('Missile device not found')
 
 def send_cmd(cmd):
     if "Thunder" == DEVICE_TYPE:
-        DEVICE.ctrl_transfer(0x21, 0x09, 0, 0, [0x02, cmd, 0x00,0x00,0x00,0x00,0x00,0x00])
+        DEVICE.write([0x02, cmd, 0x00,0x00,0x00,0x00,0x00,0x00])
     elif "Original" == DEVICE_TYPE:
-        DEVICE.ctrl_transfer(0x21, 0x09, 0x0200, 0, [cmd])
+        DEVICE.write([cmd])
 
 def led(cmd):
     if "Thunder" == DEVICE_TYPE:
-        DEVICE.ctrl_transfer(0x21, 0x09, 0, 0, [0x03, cmd, 0x00,0x00,0x00,0x00,0x00,0x00])
+        DEVICE.ctrl_write([0x03, cmd, 0x00,0x00,0x00,0x00,0x00,0x00])
     elif "Original" == DEVICE_TYPE:
         print("There is no LED on this device")
 
